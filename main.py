@@ -73,25 +73,71 @@ def get_rows(data):
 
 
 def fetch_survey_data():
-    """Fetch the response table directly from Porsline."""
+    """Fetch all response pages from Porsline."""
     if not SURVEY_ID:
         raise RuntimeError("ابتدا PORSLINE_SURVEY_ID را در فایل .env وارد کنید.")
     if not API_KEY:
         raise RuntimeError("ابتدا PORSLINE_API_KEY را در فایل .env وارد کنید.")
 
-    response = requests.get(TABLE_URL, headers=API_HEADERS, timeout=60)
-    response.raise_for_status()
-    data = response.json()
+    page = 1
+    page_size = 1000
+    all_rows = []
+    first_data = None
 
-    if not isinstance(data, dict):
-        raise ValueError("پاسخ پرس‌لاین در قالب JSON مورد انتظار نیست.")
+    while True:
+        print(f"📡 دریافت صفحه {page} پاسخ‌ها...")
+
+        response = requests.get(
+            TABLE_URL,
+            headers=API_HEADERS,
+            params={
+                "page": page,
+                "page_size": page_size
+            },
+            timeout=60
+        )
+        response.raise_for_status()
+
+        data = response.json()
+
+        if not isinstance(data, dict):
+            raise ValueError("پاسخ پرس‌لاین در قالب JSON مورد انتظار نیست.")
+
+        if first_data is None:
+            first_data = data
+
+        page_rows = get_rows(data)
+
+        if not page_rows:
+            break
+
+        all_rows.extend(page_rows)
+
+        print(f"   دریافت‌شده تا اینجا: {len(all_rows)}")
+
+        total_count = int(data.get("responders_count") or 0)
+
+        if total_count and len(all_rows) >= total_count:
+            break
+
+        if len(page_rows) < page_size:
+            break
+
+        page += 1
+
+    if first_data is None:
+        raise ValueError("هیچ اطلاعاتی از پرس‌لاین دریافت نشد.")
+
+    first_data["body"] = all_rows
+    first_data["responders_count"] = len(all_rows)
 
     with open(RESULTS_FILE, "w", encoding="utf-8") as file:
-        json.dump(data, file, ensure_ascii=False, indent=2)
+        json.dump(first_data, file, ensure_ascii=False, indent=2)
 
-    return data
+    print(f"\n✅ مجموع پاسخ‌های دریافت‌شده: {len(all_rows)}")
 
-
+    return first_data
+    
 def row_cells(row):
     """Return cells and their corresponding column titles."""
     if isinstance(row, dict):
