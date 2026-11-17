@@ -1,0 +1,22 @@
+# Private credentials
+.env
+
+# Downloaded student submissions and API response data
+homework_downloads/
+results_v2.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
